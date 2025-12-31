@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <title>Cloudflare Turnstile Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Turnstile script -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .box {
+            background: #fff;
+            padding: 24px;
+            border-radius: 8px;
+            width: 320px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.1);
+        }
+
+        button {
+            margin-top: 16px;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background: #0052cc;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h3>Xác minh</h3>
+    <div id="requestInfo"
+         style="
+        margin-top:16px;
+        padding:12px;
+        background:#f3f3f3;
+        border:1px solid #ddd;
+        font-size:12px;
+        white-space:pre-wrap;
+        max-height:260px;
+        overflow:auto;
+     ">
+    </div>
+
+    <!-- CAPTCHA mount point -->
+    <div id="cf-turnstile"></div>
+    <button id="submitBtn" >Submit</button>
+</div>
+
+<script>
+    let turnstileToken = null;
+
+    window.onload = function () {
+        turnstile.render('#cf-turnstile', {
+            sitekey: '0x4AAAAAACEHvkyQUdJZej9w',
+            size: 'flexible',
+
+            callback: function (token) {
+                turnstileToken = token;
+            },
+
+            'expired-callback': function () {
+                turnstileToken = null;
+            },
+
+            'error-callback': function (e) {
+                alert('Captcha failed');
+            }
+        });
+    };
+
+    document.getElementById('submitBtn').onclick = function () {
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': navigator.language,
+            'User-Agent': navigator.userAgent,
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Origin': window.location.origin,
+            'Referer': window.location.href
+        };
+
+        // 🔹 cookies đọc được từ JS
+        const cookies = document.cookie || '(No cookies)';
+
+        // 🔹 full request info
+        const requestInfo = {
+            url: '/api/verify-captcha',
+            method: 'POST',
+            headers: headers,
+            cookies: cookies,
+            turnstileToken: turnstileToken, // ✅ TOKEN Ở ĐÂY
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            timestamp: new Date().toISOString()
+        };
+
+        // 👉 show ra div
+        document.getElementById('requestInfo').textContent =
+            JSON.stringify(requestInfo, null, 2);
+
+        // 🔹 send request
+        fetch('/api/verify-captcha', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                token: turnstileToken
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                console.log('Backend response:', data);
+            })
+            .catch(err => {
+                console.error(err);
+            });
+    };
+</script>
+
+</body>
+</html>
